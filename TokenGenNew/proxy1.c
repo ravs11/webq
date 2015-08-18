@@ -246,9 +246,9 @@ void main(void) {/*{{{*/
         int iter = 0;
         for (iter = 0; iter < LIMIT; iter++) {
             if (get_array(&visitor_count[(current_time + iter) % LIMIT])
-                    < capacity) {
+                    < capacity - hardness) {
                 //visitor_count[(current_time+iter)%LIMIT]++;
-                update_array(&visitor_count[(current_time + iter) % LIMIT], 1); // increment by 1
+                update_array(&visitor_count[(current_time + iter) % LIMIT], hardness); // increment by hardness
                 break;
             }
         }
