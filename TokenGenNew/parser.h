@@ -1,3 +1,6 @@
+#include<string.h>
+#include<stdio.h>
+#include<stdlib.h>
 extern int listening_portno;
 extern char ** ip_array;
 extern char * sending_port;
@@ -7,7 +10,7 @@ void parse_config_file(){
     int c;
     char *buffer = (char *)malloc(size);
     ip_array = malloc( 5 * sizeof( char* ) ); // allocate space for 5 ip
-    sending_port = malloc( 8 * sizeof( char) ); 
+    sending_port = malloc( 8 * sizeof( char) );
 
     FILE *f = fopen("/home/murali/webq/TokenGenNew/proxy.conf", "r");
     if(f) {
@@ -26,12 +29,15 @@ void parse_config_file(){
             while( c!= EOF && c != '\n') c=fgetc(f);
             buffer[pos] = 0;
             nl ++;
-            ip_array[0] = (char*) malloc( 20 * sizeof(char) );
-            strcpy( ip_array[0] ,  "10.129.41.17" );
             // line is now in buffer
             switch( nl ){
                 case 1:
                     listening_portno = atoi( buffer );
+                    strcpy( sending_port, buffer );
+                    break;
+                case 4:
+                    ip_array[0] = (char*) malloc( 20 * sizeof(char) );
+                    strcpy( ip_array[0] , buffer );
                     break;
                 default:
                     break;

@@ -3,51 +3,74 @@
 #include "parser.h"
 #include <netinet/tcp.h>
 
-char log_format_string[256];
 int listening_portno;
 char ** ip_array ;
 char * sending_port;
 
-void start_logging() {/*{{{*/
+void start_logging() {
     init_logger();
     start_timer();
-}/*}}}*/
+}
 
-int readFromClient( int clientSocketFD ) {/*{{{*/
+struct clientDetails{
+    int sockfd;
+    int ip1;
+    int ip2;
+    int ip3;
+    int ip4;
+    int port;
+};
+
+int readFromClient( struct clientDetails * cd ) {
     // make buffer to store the data from client
     // Two types of clients
     //  1 Capacity Estimator
     //  2 other peer proxy
-    char buffer[256];
-    bzero(buffer,256);
+    int clientSocketFD = cd->sockfd;
+    /* debug_printf( "yo yo thread id %d\n", clientSocketFD ); */
+    int bytes = LIMIT * sizeof(int);
+    int*  buffer = malloc( bytes );
     int bytesRead;
-    while( ( bytesRead = read( clientSocketFD, &buffer, 255) ) > 0)
+    int prev_bytesRead=0;
+    while( ( bytesRead = read( clientSocketFD, buffer, bytes ) ) > 0)
     {
-        debug_lognum( "bytesRead", bytesRead );
-        capacity = atol(buffer);
-        bzero(buffer,256);
+        /* debug_printf( "bytesRead %d \n", bytesRead ); */
+        if( bytesRead > 5 ) {
+            /* debug_log( "gonna write memory" ); */
+            int j;
+            memcpy( peer_v_count[cd->ip4%PEERS]+(prev_bytesRead/4) , buffer , bytesRead );
+            prev_bytesRead += bytesRead;
+            prev_bytesRead = (prev_bytesRead >= 4000 ) ? 0:prev_bytesRead;
+            /* if( prev_bytesRead == 0 ) { */
+                /* debug_printf( "once cycle done \n"); */
+                /* for( j =0 ; j < LIMIT ; j++ ){ */
+                    /* if (peer_v_count[cd->ip4%PEERS][j] != 0 ||  visitor_count[j]!= 0 ) */
+                    /*     debug_printf( "(%d)%d,%d", j, peer_v_count[cd->ip4%PEERS][j], visitor_count[j] ); */
+                /* } */
+            /* } */
+            //calculate peer_avg_waiting_time here with locks
+        }
+        else{
+            /* debug_printf( "data* %d \n", *buffer ); */
+            capacity = *buffer;
+        }
     }
-    debug_log( " gonna shutdown thread " );
+    debug_printf( "gonna shutdown read thread \n");
     // 2- shutdown both send and recieve functions
-    shutdown(clientSocketFD, 2);
-}/*}}}*/
+    return close( clientSocketFD );
+}
 
-void * ThreadWorker( void * threadArgs) {/*{{{*/
-    int clientSocketFD = (int) threadArgs;
-    sprintf( log_format_string , "yo yo thread id %d\n", (int) threadArgs );
-    debug_log( log_format_string );
-    readFromClient( threadArgs);
+void * ThreadWorker( void * threadArgs) {
+    readFromClient( (struct clientDetails *) threadArgs);
     pthread_exit(NULL);
-}/*}}}*/
+}
 
-void* create_server_socket() { /*{{{*/
+void* create_server_socket() {
     //
     // Creates server socket for communication between Proxy1 and Proxy2
     //
     int sockfd, newsockfd,  clilen;
-    char buffer[256];
     struct sockaddr_in serv_addr, cli_addr;
-    int bytes_read_count;
 
     /* First call to socket() function */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -91,12 +114,25 @@ void* create_server_socket() { /*{{{*/
             perror("ERROR on accept");
             exit(1);
         }
-        if(pthread_create(&threadId, NULL, ThreadWorker, (void *)newsockfd) < 0)
+        // print the ip
+        /* debug_printf("peer connected: %d.%d.%d.%d\n", */
+        /*         (int)(cli_addr.sin_addr.s_addr&0xFF), */
+        /*         (int)((cli_addr.sin_addr.s_addr&0xFF00)>>8), */
+        /*             (int)((cli_addr.sin_addr.s_addr&0xFF0000)>>16), */
+        /*             (int)((cli_addr.sin_addr.s_addr&0xFF000000)>>24)); */
+        struct clientDetails * cd;
+        cd = malloc( sizeof( struct clientDetails ) );
+        cd->sockfd = newsockfd;
+        cd->ip1 = (int)(cli_addr.sin_addr.s_addr&0xFF);
+        cd->ip2 = (int)((cli_addr.sin_addr.s_addr&0xFF00)>>8);
+        cd->ip3 = (int)((cli_addr.sin_addr.s_addr&0xFF0000)>>16);
+        cd->ip4 = (int)((cli_addr.sin_addr.s_addr&0xFF000000)>>24);
+        if(pthread_create(&threadId, NULL, ThreadWorker, (void *)cd) < 0)
         {
-            debug_log("Thread creation failed");
+            debug_printf("Thread creation failed");
             exit(1);
         }
-        
+
         /* If connection is established then start communicating */
 
         /* bzero(buffer, 256); */
@@ -130,50 +166,50 @@ void* create_server_socket() { /*{{{*/
 //      }
 
     }
-}/*}}}*/
+}
 
-void writeToServer(){/*{{{*/
+void writeToServer(){
     int sockfd, portnum, n;
     struct sockaddr_in server_addr;
-    strcpy( sending_port , "10001" );
+    // sending_port is already filled by the parser
     portnum = atoi(sending_port);
     /* Create client socket */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
     {
-        debug_log( "ERROR opening socket\n");
+        debug_printf( "ERROR opening socket\n");
         exit(1);
     }
     bzero((char *) &server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     if(!inet_aton( ip_array[0]  , &server_addr.sin_addr))
     {
-        debug_log( "ERROR invalid server IP address\n");
+        debug_printf( "ERROR invalid server IP address\n");
+        debug_printf( ip_array[0]);
         exit(1);
     }
     server_addr.sin_port = htons(portnum);
-    if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr)) >= 0) 
+    if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr)) >= 0)
     {
         while( 1)
         {
             n = write(sockfd, visitor_count , 1000 * sizeof(int) );
-            if (n < 0) 
+            if (n < 0)
             {
-                debug_log("ERROR writing to socket\n");
+                debug_printf("ERROR writing to socket\n");
                 /* exit(1); */
-                break;
+                /* break; */
             }
             // connect as a client;
-            sleep(5);
+            nanosleep((struct timespec[]){{0, 500000000}}, NULL);
         }
-    }
-    else{
-        debug_log( "ERROR connecting to a peer");
+    }else{
+        debug_printf( "ERROR connecting to a peer");
         /* sleep(1); */
         /* exit(1); */
     }
-
-}/*}}}*/
+    close( sockfd );
+}
 
 void start_q_timer();
 
@@ -186,8 +222,8 @@ void start_q_timer() {/*{{{*/
     struct event ev;
     struct timeval tv;
 
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
 
     event_init();
     evtimer_set(&ev, timed_q_function, NULL);
@@ -212,13 +248,18 @@ void main(void) {/*{{{*/
     total_in = 0;
     total_out = 0;
 //  proxy2_in = 0;
-    capacity = 34;
+    capacity = 15;
 //  initial_alpha = (float) 1 / 15.0; //  Initial factor by which we multiply the number of pending requests to get waiting
 //  alpha = (float) 1 / 15.0; //  Factor by which we multiply the number of pending requests to get waiting time time
     current_time = 0;
     int counter;
     for (counter = 0; counter < LIMIT; counter++)
+    {
         visitor_count[counter] = 0;  // Initialize visitor_count
+        int i ;
+        for( i = 0 ; i < PEERS; i++ )
+        peer_v_count[i][counter] = 0; // replace with memset
+    }
 
 
     parse_config_file();
@@ -236,7 +277,7 @@ void main(void) {/*{{{*/
         total_in++;
 
         // Updated on 17.04
-        time_t currtime = time(NULL); 
+        time_t currtime = time(NULL);
 
         //int curr_backlog = get_values(&incoming) - get_values(&outgoing);
         //curr_backlog = curr_backlog > 0 ? curr_backlog : 0;
@@ -244,9 +285,84 @@ void main(void) {/*{{{*/
 
         // Calculate waiting time and increment corresponding count in queue (Make this more efficient if needed)
         int iter = 0;
+        int j;
+        peer_avg_waiting_time = 0;
+        avg_waiting_time = 0;
+        int reqInHost =0;
+        int reqInPeers=0;
         for (iter = 0; iter < LIMIT; iter++) {
-            if (get_array(&visitor_count[(current_time + iter) % LIMIT])
-                    < capacity - hardness) {
+            reqInHost += visitor_count[iter];
+            if( iter - current_time > 0 )
+            {
+                // sum the times .. actual avg found later outside the loop
+                avg_waiting_time += ( iter - current_time ) * visitor_count[ iter ];
+                for( j=0; j<PEERS; j++)
+                {
+                    peer_avg_waiting_time += (iter-current_time) * peer_v_count[j][iter];
+                    reqInPeers += peer_v_count[j][iter];
+                    /* if( visitor_count[iter] != 0 && peer_v_count[j][iter] != 0) */
+                    /* { */
+                    /*     debug_printf( "%d|%d||%d|%d \n", */
+                    /*             (iter -current_time), visitor_count[ iter ], */
+                    /*             (iter -current_time), peer_v_count[j][iter] ); */
+                    /* } */
+                }
+            }
+        }
+        if( reqInHost != 0 )
+            avg_waiting_time /= reqInHost;
+        if( reqInPeers != 0 )
+            peer_avg_waiting_time /= reqInPeers;
+        /* debug_printf( "%.2f %d, %.2f %d \n" , */
+        /*         avg_waiting_time , */
+        /*         reqInHost, */
+        /*         peer_avg_waiting_time , */
+        /*         reqInPeers ); */
+        int usedCapacity = 0;
+        int peerUsedCapacity = 0;
+        // calculate the share :
+        // reserve a min value of capacity (0.1) for each servers
+        int percent = 10;
+        if( avg_waiting_time == 0 && peer_avg_waiting_time == 0 )
+        {
+            avg_waiting_time = 1;
+            peer_avg_waiting_time = 1;
+        }
+        else if ( avg_waiting_time == 0 ){
+            avg_waiting_time = percent * peer_avg_waiting_time / ( 100 - percent );
+        }
+        else if ( peer_avg_waiting_time == 0 ){
+            peer_avg_waiting_time = percent * avg_waiting_time / ( 100 - percent );
+        }
+        share = capacity * avg_waiting_time/(avg_waiting_time + peer_avg_waiting_time);
+        // share found
+        if ( share == 0 ) {
+            // share can never be 0
+            share = 1;
+        }
+
+        int excess_used;
+        for (iter = 0; iter < LIMIT; iter++) {
+            // find the current used capacity for THIS "iter"
+            // for subsequent reqests at same time
+            peerUsedCapacity = 0;
+            usedCapacity = get_array(&visitor_count[(current_time + iter) % LIMIT]);
+            for( j=0; j<PEERS; j++)
+            {
+                peerUsedCapacity += get_array( &peer_v_count[j][(current_time + iter) % LIMIT] );
+            }
+            // find share of the current proxy
+            // share = total_capacity /2 if visitor_waiting_time == peer_wt; else
+            // share = total_capacity * visitor_waiting_time/(sum peer_wt and avg) if peer_wt != 0;
+            // share = total_capacity  if peer_wt == 0;
+            int total_usable_capacity = (share  - usedCapacity) ; // use a buffer here to compensate n/w delay!!!
+            if( peerUsedCapacity > 0 ){
+                excess_used = (capacity - share)-peerUsedCapacity;
+                total_usable_capacity += excess_used < 0 ? excess_used : 0;
+            }
+            debug_printf( "share %d - %d , %d - %d - %d , %d\n" , share ,usedCapacity, capacity ,usedCapacity ,peerUsedCapacity , total_usable_capacity);
+            if ( total_usable_capacity - hardness> 0 )
+            {
                 //visitor_count[(current_time+iter)%LIMIT]++;
                 update_array(&visitor_count[(current_time + iter) % LIMIT], hardness); // increment by hardness
                 break;
@@ -268,7 +384,7 @@ void main(void) {/*{{{*/
             char* env_var = getenv("QUERY_STRING");
             char* request_limit = strchr(env_var, '=') + 1;
             char url_to_visit[100];
-            strcpy(url_to_visit, "http://10.129.41.67:8000/test.php?limit=");
+            strcpy(url_to_visit, "http://10.129.41.67:9000/test.php?limit=");
             strcat(url_to_visit, (const char*) request_limit);
 
             printf("Refresh: %d; url=%s&hash=%s&token=%s\n", time_to_wait,

@@ -4,7 +4,7 @@ import static com.webq.capest.PropertiesFile.getInt;
 import static com.webq.capest.PropertiesFile.getString;
 
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 
 import org.apache.log4j.Logger;
@@ -13,16 +13,20 @@ public class TokenGenCommunicator {
 
     static Socket socket = null;
     static Logger logger = Logger.getLogger("TokenGenCommunicator");
-    static PrintWriter toProxy1;
+    static int noOfProxy = getInt("webq.noOfProxy");
+    static OutputStream[] out = new OutputStream[noOfProxy];
     public static void init() {
         try {
-            String ip = getString("webq.proxy1.ip");
-            int port = getInt("webq.proxy1.port");
-            logger.debug("Proxy1 IP: " + ip);
-            logger.debug("Proxy1 port: " + port);
-            socket = new Socket(ip, port);
-            toProxy1 = new PrintWriter(socket.getOutputStream(), true);
-            logger.debug("connected to proxy1");
+            for( int i = 0; i < noOfProxy; i++ ){
+                String proxyNo = Integer.toString(i+1);
+                String ip = getString("webq.proxy"+proxyNo+".ip");
+                int port = getInt("webq.proxy"+proxyNo+".port");
+                socket = new Socket(ip, port);
+                out[i] = socket.getOutputStream();
+                logger.debug("Proxy"+proxyNo+" IP: " + ip);
+                logger.debug("Proxy"+proxyNo+" port: " + port);
+                logger.debug("connected to proxy"+proxyNo);
+            }
         } catch (IOException e) {
             logger.error("", e);
         }
@@ -30,11 +34,16 @@ public class TokenGenCommunicator {
 
     public static void conveyNewCapacity(String value) {
         logger.debug("To TokenGen: >" + value + "<");
-        toProxy1.println(value);
-        toProxy1.flush();
     }
 
     public static void conveyNewCapacity(double value) {
-        conveyNewCapacity(Integer.toString((int)value));
+        try{
+            for( int i = 0; i < noOfProxy; i++ ){
+                out[i].write((int) value );
+                out[i].flush();
+            }
+        } catch (IOException e) {
+            logger.error("", e);
+        }
     }
 }
