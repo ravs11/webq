@@ -34,6 +34,16 @@ public class TokenGenCommunicator {
 
     public static void conveyNewCapacity(String value) {
         logger.debug("To TokenGen: >" + value + "<");
+		try{
+				for( int i = 0; i < noOfProxy; i++ ){
+				  //  out[i].write(Integer.parseInt(value) );
+				    out[i].flush();
+				}
+		} 
+		catch (IOException e) {
+			    logger.error("", e);
+		}
+
     }
 
     public static void conveyNewCapacity(double value) {
@@ -46,4 +56,20 @@ public class TokenGenCommunicator {
             logger.error("", e);
         }
     }
+
+	public static void conveyHardness(String value) {
+				logger.debug("To TokenGen: >" + value + "<");
+				try{
+					for( int i = 0; i < noOfProxy; i++ ){
+						out[i].write(Integer.parseInt(value) );
+						out[i].flush();
+					}   
+				} 
+				catch (IOException e) {
+					        logger.error("", e);
+				}
+
+				//toProxy1.println(value);
+				//toProxy1.flush();
+	}
 }
