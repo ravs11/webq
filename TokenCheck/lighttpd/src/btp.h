@@ -214,7 +214,7 @@ void disconnect_proxy1()
 void inform_proxy1_arrival(char * query){
 //{{{
     bzero (buffr, 256);
-	if(strcmp(query,"req1.php")
+	if(strcmp(query,"req1.php")==0)
 		strcpy(url,"0");
 	else
 		strcpy(url,"1");
@@ -237,7 +237,7 @@ void inform_proxy1_departure(unsigned long service_time, int http_status, char* 
     //strcpy(buffr, c);
     bzero (buffr, 256);
     strcpy(buffr, "" );
-	if(strcmp(query,"req1.php")
+	if(strcmp(query,"req1.php")==0)
 		strcpy(url,"0");
 	else
 		strcpy(url,"1");
