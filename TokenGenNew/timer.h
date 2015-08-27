@@ -48,7 +48,7 @@ struct queue pr = { NULL, NULL, 0, 20, 0, 0, 0 };
 struct queue service_times = { NULL, NULL, 0, 20, 0, 0, 0 };
 extern int capacity = 10;
 //added hardness parameter
-extern double hardness1=1,hardness2;
+extern double hardness[2];
 /*****************************************/
 
 /*****************************************
