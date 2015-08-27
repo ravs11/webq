@@ -9,18 +9,26 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class findParams {
-	public void findCapacity() throws MatlabConnectionException, MatlabInvocationException
+	public void findCapacity() 
 	//public static void main(String[] args) throws MatlabConnectionException, MatlabInvocationException
 	{
 	    //Create a proxy, which we will use to control MATLAB
 	    MatlabProxyFactory factory = new MatlabProxyFactory();
-	    MatlabProxy proxy = factory.getProxy();
+	   
+	    try
+	    {
+	    	MatlabProxy proxy = factory.getProxy();
+	    	proxy.eval("find_params");
+	    	proxy.disconnect();
+	    }
+	    catch(Exception e)
+	    {
+	    	e.printStackTrace();
+	    }
 
-	    //Display 'hello world' just like when using the demo
-	    proxy.eval("find_params");
-
+	    
 	    //Disconnect the proxy from MATLAB
-	    proxy.disconnect();
+	    
 	    
 		String capacity="";
 		
