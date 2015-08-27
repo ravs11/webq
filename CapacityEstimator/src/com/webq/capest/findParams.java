@@ -9,18 +9,18 @@ import java.io.FileReader;
 import java.io.IOException;
 
 public class findParams {
-	public void findCapacity()
+	public void findCapacity() throws MatlabConnectionException, MatlabInvocationException
 	//public static void main(String[] args) throws MatlabConnectionException, MatlabInvocationException
 	{
 	    //Create a proxy, which we will use to control MATLAB
-	    /*MatlabProxyFactory factory = new MatlabProxyFactory();
+	    MatlabProxyFactory factory = new MatlabProxyFactory();
 	    MatlabProxy proxy = factory.getProxy();
 
 	    //Display 'hello world' just like when using the demo
 	    proxy.eval("find_params");
 
 	    //Disconnect the proxy from MATLAB
-	    proxy.disconnect();*/
+	    proxy.disconnect();
 	    
 		String capacity="";
 		
@@ -40,10 +40,10 @@ public class findParams {
 			e.printStackTrace();
 		} 
 	    
-	    /*TokenGenCommunicator.init();*/
+	    TokenGenCommunicator.init();
 	    
 	    //Convey Capacity
-	    //TokenGenCommunicator.conveyNewCapacity(capacity);
+	    TokenGenCommunicator.conveyNewCapacity(capacity);
 	   
 	    String hardness="";
 	    //Reading hardness.txt
@@ -63,6 +63,6 @@ public class findParams {
 		} 
 	    
 	    //Convey hardness
-	    /*TokenGenCommunicator.conveyHardness(hardness);*/
+	    TokenGenCommunicator.conveyHardness(hardness);
 	}
 }
