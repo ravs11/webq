@@ -54,6 +54,8 @@ int readFromClient( struct clientDetails * cd ) {
             /* debug_printf( "data* %d \n", *buffer ); */
             capacity = *buffer;
         }
+		// get hardness from CapacityEstimator
+		// Add Code 
     }
     debug_printf( "gonna shutdown read thread \n");
     // 2- shutdown both send and recieve functions
